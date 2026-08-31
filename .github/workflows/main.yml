@@ -1,4 +1,4 @@
-name: Linux Cloud RDP (Iran)
+name: Linux Cloud RDP + SSH (Iran)
 
 on:
   workflow_dispatch:
@@ -6,20 +6,23 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 2880  # ✅ ۴۸ ساعت = ۲۸۸۰ دقیقه
+    timeout-minutes: 2880
 
     steps:
       - name: 1. Update & Install Dependencies
         run: |
           sudo apt update
-          sudo apt install -y xrdp xfce4 xfce4-goodies
+          sudo apt install -y xrdp xfce4 xfce4-goodies openssh-server
           curl -fsSL https://tailscale.com/install.sh | sudo bash
 
-      - name: 2. Configure XRDP
+      - name: 2. Configure XRDP & SSH
         run: |
           sudo systemctl enable xrdp
           sudo systemctl start xrdp
+          sudo systemctl enable ssh
+          sudo systemctl start ssh
           sudo ufw allow 3389/tcp
+          sudo ufw allow 22/tcp
           echo "xfce4-session" > ~/.xsession
 
       - name: 3. Create Admin Account
@@ -30,22 +33,23 @@ jobs:
 
       - name: 4. Connect to Tailscale VPN
         env:
-          TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}  # ✅ اصلاح شد
+          TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
         run: |
           sudo tailscale up --authkey="$TAILSCALE_AUTHKEY" --hostname="github-rdp-linux"
           sleep 5
           TS_IP=$(tailscale ip -4)
           echo "=================================================="
-          echo "  >>> RDP SERVER IS READY! <<<"
+          echo "  >>> SERVER IS READY! <<<"
           echo "  Tailscale IP : $TS_IP"
+          echo "  SSH Command  : ssh NvDAdmin@$TS_IP"
+          echo "  RDP Address  : $TS_IP:3389"
           echo "  Username     : NvDAdmin"
           echo "  Password     : P@ssw0rd1qazXSW@#"
-          echo "  >> Connect via Microsoft Remote Desktop to: $TS_IP"
           echo "=================================================="
 
       - name: 5. Keep Server Alive (48 Hours)
         run: |
           for i in {1..2880}; do
             sleep 60
-            echo "[$i/2880] Server running... (Active for $((i/60)) hours)"
+            echo "[$i/2880] Server running..."
           done
