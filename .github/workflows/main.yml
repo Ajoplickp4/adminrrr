@@ -1,0 +1,51 @@
+name: Linux Cloud RDP (Iran)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2880  # ✅ ۴۸ ساعت = ۲۸۸۰ دقیقه
+
+    steps:
+      - name: 1. Update & Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y xrdp xfce4 xfce4-goodies
+          curl -fsSL https://tailscale.com/install.sh | sudo bash
+
+      - name: 2. Configure XRDP
+        run: |
+          sudo systemctl enable xrdp
+          sudo systemctl start xrdp
+          sudo ufw allow 3389/tcp
+          echo "xfce4-session" > ~/.xsession
+
+      - name: 3. Create Admin Account
+        run: |
+          sudo useradd -m -s /bin/bash NvDAdmin
+          echo "NvDAdmin:P@ssw0rd1qazXSW@#" | sudo chpasswd
+          sudo usermod -aG sudo NvDAdmin
+
+      - name: 4. Connect to Tailscale VPN
+        env:
+          TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}  # ✅ اصلاح شد
+        run: |
+          sudo tailscale up --authkey="$TAILSCALE_AUTHKEY" --hostname="github-rdp-linux"
+          sleep 5
+          TS_IP=$(tailscale ip -4)
+          echo "=================================================="
+          echo "  >>> RDP SERVER IS READY! <<<"
+          echo "  Tailscale IP : $TS_IP"
+          echo "  Username     : NvDAdmin"
+          echo "  Password     : P@ssw0rd1qazXSW@#"
+          echo "  >> Connect via Microsoft Remote Desktop to: $TS_IP"
+          echo "=================================================="
+
+      - name: 5. Keep Server Alive (48 Hours)
+        run: |
+          for i in {1..2880}; do
+            sleep 60
+            echo "[$i/2880] Server running... (Active for $((i/60)) hours)"
+          done
